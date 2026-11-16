@@ -1,0 +1,56 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; color: #1f2933; background: #f3f6f9; }
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: linear-gradient(180deg,#0f6b7a,#0b5260); color: #fff; }
+.topbar h1 { margin: 0; font-size: 18px; }
+.topbar h1 small { font-weight: 400; opacity: .8; margin-left: 6px; }
+.logo { color: #ffd166; }
+.topactions { display: flex; gap: 8px; }
+#status { min-height: 22px; padding: 6px 24px 0; font-size: 13px; }
+#status.ok { color: #1b7a34; } #status.err { color: #b71c1c; }
+.layout { display: grid; grid-template-columns: 270px 1fr; gap: 18px; padding: 10px 24px 30px; max-width: 1200px; margin: 0 auto; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+button { padding: 6px 12px; border: 1px solid #cbd2d9; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; }
+button:hover { background: #eef2f6; }
+button.primary { background: #0f6cbd; border-color: #0f6cbd; color: #fff; }
+button.primary:hover { background: #0a5a9e; }
+button.danger:hover { background: #fde8e8; border-color: #e0a0a0; }
+button.small { padding: 3px 9px; }
+button:disabled { opacity: .45; cursor: default; }
+.topbar button { background: rgba(255,255,255,.15); color: #fff; border-color: rgba(255,255,255,.4); }
+.topbar button:hover { background: rgba(255,255,255,.28); }
+input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #cbd2d9; border-radius: 6px; font: inherit; background: #fff; }
+input[type=text]:focus { outline: 2px solid #0f6cbd; outline-offset: -1px; }
+.wide { width: 100%; }
+.newrow { margin: 8px 0; } .newrow[hidden] { display: none; }
+.two { display: flex; gap: 6px; margin-top: 6px; } .two button { flex: 1; }
+#profileList { list-style: none; margin: 12px 0 0; padding: 0; }
+#profileList li { margin-bottom: 6px; }
+#profileList button { width: 100%; text-align: left; padding: 9px 11px; display: flex; justify-content: space-between; gap: 8px; }
+#profileList button.sel { background: #e3f1fb; border-color: #0f6cbd; font-weight: 600; }
+#profileList .count { color: #7b8794; font-weight: 400; font-size: 12px; white-space: nowrap; }
+.detail { background: #fff; border: 1px solid #d9e2ec; border-radius: 10px; padding: 18px; min-height: 240px; }
+.dhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.dhead .name { flex: 1; min-width: 200px; font-size: 18px; font-weight: 600; border-color: transparent; }
+.dhead .name:hover, .dhead .name:focus { border-color: #cbd2d9; }
+.check { display: flex; align-items: center; gap: 6px; margin: 8px 0 14px; color: #52606d; }
+.hint { color: #7b8794; font-size: 13px; }
+.page { border: 1px solid #d9e2ec; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: #fafbfc; }
+.pagehead { display: grid; grid-template-columns: 24px 1fr auto auto auto auto auto; gap: 6px; align-items: center; }
+.num { width: 22px; height: 22px; border-radius: 50%; background: #0f6cbd; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.after { margin: 6px 0 0 30px; color: #52606d; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+table.rules { width: 100%; border-collapse: collapse; margin-top: 8px; }
+table.rules th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #7b8794; padding: 4px 6px; }
+table.rules td { padding: 4px 6px; border-top: 1px solid #e4e9ef; vertical-align: middle; }
+table.rules td.field small { display: block; color: #9aa5b1; font-size: 11px; }
+table.rules td.type { color: #7b8794; font-size: 12px; white-space: nowrap; }
+table.rules td.x { width: 34px; text-align: right; }
+.ro { color: #7b8794; font-style: italic; }
+.addpage { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 6px; }
+h3 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #52606d; }
+
+#profileList button.act span:first-child { color: #1b7a34; }
+.activebtn { border-color: #b8c4d0; }
+.activebtn.on { background: #e3f6e8; border-color: #4caf6a; color: #1b7a34; font-weight: 600; }
+.activebtn.on:hover { background: #d3efdb; }
+.activenote { margin: 8px 0 0; font-size: 13px; color: #52606d; }
+.activenote.warn { color: #9a5b00; background: #fff4de; border: 1px solid #f0cf8a; border-radius: 6px; padding: 6px 10px; }

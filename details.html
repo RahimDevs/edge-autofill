@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quick AutoFill</title>
+  <link rel="stylesheet" href="details.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1><span class="logo">⚡</span> Quick AutoFill <small>Details</small></h1>
+    <div class="topactions">
+      <button id="exportBtn">Export all</button>
+      <button id="importBtn">Import</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </header>
+  <div id="status"></div>
+
+  <main class="layout">
+    <aside class="side">
+      <button id="newBtn" class="primary wide">+ New profile</button>
+      <div id="newRow" class="newrow" hidden>
+        <input id="newName" type="text" placeholder="Profile name">
+        <div class="two"><button id="createBtn" class="primary">Create</button><button id="cancelBtn">Cancel</button></div>
+      </div>
+      <ul id="profileList"></ul>
+      <p class="hint" id="noProfiles" hidden>No profiles yet. Create one, then open any page and click the extension icon to record its rules.</p>
+    </aside>
+    <section class="detail" id="detail"></section>
+  </main>
+  <script src="details.js"></script>
+</body>
+</html>
