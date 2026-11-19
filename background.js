@@ -1,3 +1,5 @@
+importScripts('vars.js');   // shared variable engine ({{key}} and {{ask:Label}})
+
 // Orchestrates running a profile across several pages:
 // for each page -> open its URL (if the tab is not already there) -> wait for load -> fill that page's rules.
 const chainTabs = new Set();
@@ -60,20 +62,23 @@ function waitLoaded(tabId, timeout = 30000) {
   });
 }
 
-async function runChain(tabId, profile, only) {
+async function runChain(tabId, profile, only, ctx) {
   if (chainTabs.has(tabId)) return;
   chainTabs.add(tabId);
   const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo(), 20000);
   const notes = [];
+  let here0 = null;
   let filled = 0, total = 0;
+  let outcome = null;
   try {
     const idxs = only != null ? [only] : profile.pages.map((_, i) => i);
     for (let n = 0; n < idxs.length; n++) {
       const pg = profile.pages[idxs[n]];
-      const label = `Page ${n + 1}/${idxs.length}`;
+      const label = `${profile.name} · page ${n + 1}/${idxs.length}`;     // the toast always names the profile that is filling
       if (!pg || !pg.rules || !pg.rules.length) { notes.push(`${label}: no rules`); continue; }
 
       const here = await toTab(tabId, { type: 'getKey' }, 5);
+      if (here && !here0) here0 = here;
       if (!urlMatches(pg.url, here)) {
         const target = pg.href || pg.url;
         if (!target || target.includes('*')) { notes.push(`${label}: cannot open "${pg.url || 'no URL'}"`); continue; }
@@ -81,10 +86,13 @@ async function runChain(tabId, profile, only) {
         await chrome.tabs.update(tabId, { url: target });
         if (!(await loaded)) notes.push(`${label}: slow to load`);
       }
-      const res = await toTab(tabId, { type: 'runPageRules', rules: pg.rules, label });
+      const rules = pg.rules.map(r => resolveRule(r, ctx));
+      const stuck = rules.filter(r => ['value', 'text'].some(k => typeof r[k] === 'string' && /\{\{[^{}]+\}\}/.test(r[k]))).map(r => r.label || r.name || r.id);
+      if (stuck.length) notes.push(`${label}: variables not replaced in ${stuck.join(', ')}`);
+      const res = await toTab(tabId, { type: 'runPageRules', rules, label });
       if (!res) { notes.push(`${label}: could not run on page`); continue; }
       filled += res.ok; total += res.total;
-      if (res.failed.length) notes.push(`${label}: not found — ${res.failed.join(', ')}`);
+      if (res.failed.length) notes.push(`${label}: not found - ${res.failed.join(', ')}`);
 
       if (pg.after) {                       // press the page's button (e.g. Search), then wait if it loads a new page
         const nav = waitNav(tabId);
@@ -93,19 +101,43 @@ async function runChain(tabId, profile, only) {
         await nav;
       }
     }
-    const text = `"${profile.name}" finished — filled ${filled}/${total} field${total === 1 ? '' : 's'}.` + (notes.length ? ' ' + notes.join(' · ') : '');
-    await toTab(tabId, { type: 'toast', text }, 10);
+    outcome = { filled, total, notes: notes.slice() };
+    const ver = chrome.runtime.getManifest().version;
+    if (here0 && here0.version && here0.version !== ver) notes.push('this page has an older toolbar loaded - reload the page');
+    const text = `"${profile.name}" finished - filled ${filled}/${total} field${total === 1 ? '' : 's'}.` + (notes.length ? ' ' + notes.join(' · ') : '');
+    await toTab(tabId, { type: 'toast', text: notes.length ? `${text} (v${ver})` : text, long: notes.length > 0 }, 10);
   } finally {
     clearInterval(keepAlive);
     chainTabs.delete(tabId);
   }
+  // tell open extension pages (the Details page) that the run finished, so they can offer "Run next page"
+  if (outcome) notifyPages({ type: 'runFinished', profileId: profile.id, name: profile.name, only: only == null ? null : only, tabId, ...outcome });
 }
 
-async function startProfile(tabId, profileId, only) {
+function notifyPages(msg) {
+  try { const r = chrome.runtime.sendMessage(msg); if (r && r.catch) r.catch(() => {}); } catch (_) {}   // no Details page open: nothing to tell
+}
+
+async function startProfile(tabId, profileId, only, values, auto) {
   const p = (await getProfiles()).find(x => x.id === profileId);
   if (!p) return { error: 'missing' };
+  if (auto) {                                   // auto-run is only ever allowed for the ACTIVE profile that has auto-run turned on
+    const { activeProfile } = await chrome.storage.local.get('activeProfile');
+    if (activeProfile !== profileId || !p.autoRun) return { error: 'not-auto' };
+  }
   if (chainTabs.has(tabId)) return { error: 'busy' };
-  runChain(tabId, p, only);           // runs in the background; do not await
+  const saved = (await chrome.storage.local.get('varAnswers')).varAnswers || {};
+  let answers = Object.assign({}, values || {});
+  const items = neededAsks(p, only, answers);
+  if (items.length) {                       // ask for {{ask}} values in a dialog on the page, once per run
+    items.forEach(i => { if (saved[i.key] !== undefined) i.def = saved[i.key]; });
+    const ans = await toTab(tabId, { type: 'askVars', items, title: p.name }, 3);
+    if (!ans) return { error: 'cannot-ask' };
+    if (ans.cancelled) { await toTab(tabId, { type: 'toast', text: 'Run cancelled.' }, 3); return { cancelled: true }; }
+    Object.assign(answers, ans.values);
+  }
+  if (Object.keys(answers).length) await chrome.storage.local.set({ varAnswers: Object.assign({}, saved, answers) });   // remembered as the next default
+  runChain(tabId, p, only, { vars: varMap(p), values: answers });   // runs in the background; do not await
   return { started: true };
 }
 
@@ -152,7 +184,18 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const tabId = msg.tabId || (sender.tab && sender.tab.id);
-  if (msg.type === 'runChain') startProfile(tabId, msg.profileId, msg.only).then(sendResponse);
+  if (msg.type === 'runChain') startProfile(tabId, msg.profileId, msg.only, msg.values, msg.auto).then(sendResponse);
+  else if (msg.type === 'needVars') {      // lets the Details page ask for {{ask}} values before opening a tab
+    getProfiles().then(list => {
+      const p = list.find(x => x.id === msg.profileId);
+      if (!p) return sendResponse({ items: [], title: '' });
+      chrome.storage.local.get('varAnswers').then(({ varAnswers = {} }) => {
+        const items = neededAsks(p, msg.only, {});
+        items.forEach(i => { if (varAnswers[i.key] !== undefined) i.def = varAnswers[i.key]; });
+        sendResponse({ items, title: p.name });
+      });
+    });
+  }
   else if (msg.type === 'switchPage') startSwitch(tabId, msg.profileId, msg.index).then(sendResponse);
   else if (msg.type === 'runMatching') startMatching(tabId).then(sendResponse);
   else if (msg.type === 'canAutoRun') { sendResponse({ ok: !chainTabs.has(tabId) }); return false; }

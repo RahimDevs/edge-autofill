@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Quick AutoFill",
-  "version": "2.0.0",
+  "version": "2.7.0",
   "description": "Record form fills as rules, group them into profiles, and replay them on any page.",
   "permissions": [
     "storage"
   ],
   "action": {
-    "default_title": "Quick AutoFill \u2014 click to show the toolbar",
+    "default_title": "Quick AutoFill - click to show the toolbar",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

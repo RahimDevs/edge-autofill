@@ -143,10 +143,16 @@
     return null;
   }
 
+  const normTxt = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
   const findOption = (sel, value, text) => {
     const opts = [...sel.options];
-    return (value != null && opts.find(o => o.value === value)) ||
-           (text && opts.find(o => o.text.trim() === text)) || null;
+    if (value != null) { const o = opts.find(o => o.value === value); if (o) return o; }     // recorded value (e.g. an id)
+    const t = normTxt(text);
+    if (!t) return null;
+    return opts.find(o => o.text.trim() === String(text).trim())                              // exact visible text
+        || opts.find(o => normTxt(o.text) === t)                                              // ignoring case / extra spaces
+        || opts.find(o => normTxt(o.value) === t)                                             // the typed value is the option's value
+        || (() => { const part = opts.filter(o => o.value !== '' && normTxt(o.text).includes(t)); return part.length === 1 ? part[0] : null; })() || null;   // one option contains it
   };
 
   function isReady(el, rule) {
@@ -216,7 +222,11 @@
       const r = rules[i];
       say(`Filling ${i + 1}/${rules.length}…`);
       const el = await waitFor(() => { const e = findElement(r); return e && isReady(e, r) ? e : null; });
-      if (!el) { failed.push(r.label || r.name || r.id || r.css); continue; }
+      if (!el) {
+        const found = findElement(r), nm = r.label || r.name || r.id || r.css;
+        failed.push(found && r.tag === 'select' ? `${nm} (option “${r.text || r.value || ''}” is not in the list)` : nm);
+        continue;
+      }
       const res = applyRule(el, r);
       if (res !== 'fail') ok++;
       if (res === 'changed') await sleep(r.tag === 'select' ? AFTER_SELECT_MS : AFTER_FIELD_MS);
@@ -274,57 +284,76 @@
 <style>
   :host{all:initial}
   *{box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif}
-  #bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 12px;
-       background:linear-gradient(180deg,#0f6b7a,#0b5260);color:#fff;font-size:13px;line-height:1.2;
-       box-shadow:0 2px 8px rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.18)}
+  #bar{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;padding:4px 10px;
+       background:linear-gradient(180deg,#0f6b7a,#0b5260);color:#fff;font-size:12px;line-height:1.2;
+       box-shadow:0 2px 6px rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.18)}
   #bar[hidden]{display:none}
-  .brand{display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;white-space:nowrap}
+  .brand{display:flex;align-items:center;gap:4px;font-weight:700;font-size:13px;white-space:nowrap}
   .logo{color:#ffd166}
-  .group{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.11)}
-  .gl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#bfe9ef}
-  select,.btn{height:28px;font:inherit;font-size:13px;border-radius:6px;border:1px solid rgba(0,0,0,.22)}
-  select{padding:0 6px;background:#fff;color:#111;max-width:190px}
-  .btn{padding:0 11px;background:#fff;color:#0b5260;font-weight:600;cursor:pointer;white-space:nowrap}
+  .group{display:flex;align-items:center;flex-wrap:wrap;gap:3px 6px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.11)}
+  .gl{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#bfe9ef}
+  select,.btn{height:24px;font:inherit;font-size:12px;border-radius:5px;border:1px solid rgba(0,0,0,.22)}
+  select{padding:0 3px;background:#fff;color:#111;max-width:150px}
+  #pg{max-width:112px}
+  .btn{padding:0 9px;background:#fff;color:#0b5260;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn:hover{background:#e6f6f8}
   .btn.accent{background:#ffd166;color:#3a2a00;border-color:#d6a93a}
   .btn.accent:hover{background:#ffdc85}
-  .step{display:flex;align-items:center;gap:6px;white-space:nowrap}
-  .step i{width:20px;height:20px;border-radius:50%;background:#f59e0b;color:#fff;font-style:normal;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+  .step{display:flex;align-items:center;gap:4px;white-space:nowrap}
+  .step i{width:17px;height:17px;border-radius:50%;background:#f59e0b;color:#fff;font-style:normal;font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
   .btn.link{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.35)}
   .btn.link:hover{background:rgba(255,255,255,.28)}
-  #msg{margin-left:auto;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.22);color:#ffe08a;font-weight:600}
+  #msg{margin-left:auto;padding:2px 9px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;background:rgba(0,0,0,.22);color:#ffe08a;font-weight:600}
   #msg:empty{display:none}
   #msg.ok{color:#a7f3c0}
-  #close{width:28px;height:28px;border:none;border-radius:6px;background:transparent;color:#d5f1f5;font-size:20px;line-height:1;cursor:pointer}
-  #close:hover{background:rgba(255,255,255,.18);color:#fff}
-  #msg:empty + #close{margin-left:auto}
+  .ib{width:24px;height:24px;border:none;border-radius:5px;background:transparent;color:#d5f1f5;font-size:16px;line-height:1;cursor:pointer;padding:0}
+  .ib:hover{background:rgba(255,255,255,.18);color:#fff}
+  #close{font-size:19px}
+  #msg:empty + #fold{margin-left:auto}
+  #bar.min .rec{display:none}
+  #ask{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,30,40,.5)}
+  #ask[hidden]{display:none}
+  #ask .card{width:min(400px,92vw);background:#fff;color:#1f2933;border-radius:12px;padding:16px 18px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  #ask h3{margin:0 0 10px;font-size:15px}
+  #ask label{display:block;font-size:12px;font-weight:600;color:#52606d;margin:8px 0 3px}
+  #ask input{width:100%;height:32px;padding:0 8px;border:1px solid #cbd2d9;border-radius:6px;font:inherit;font-size:14px}
+  #ask input:focus{outline:2px solid #0f6cbd;outline-offset:-1px}
+  #ask .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  #ask .btn{border:1px solid #cbd2d9}
   #toast{position:fixed;top:60px;right:14px;max-width:360px;padding:9px 13px;background:#1f2933;color:#fff;border-radius:8px;font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.35)}
   #toast[hidden]{display:none}
 </style>
 <div id="bar" hidden>
-  <div class="brand"><span class="logo">⚡</span>Quick AutoFill</div>
+  <div class="brand"><span class="logo">⚡</span>AutoFill</div>
   <div class="group">
     <span class="gl" title="The active profile is used by auto-run and the Alt+Shift+E shortcut. Only one can be active.">Active</span>
-    <select id="exec" title="Active profile — pick another to switch"></select>
+    <select id="exec" title="Active profile - pick another to switch"></select>
     <button id="run" class="btn" title="Run all pages of the profile, in order">▶ Run</button>
-    <button id="runPage" class="btn" title="Fill only this page's rules">▶ This page</button>
+    <button id="runPage" class="btn" title="Fill only this page's rules">▶ Page</button>
   </div>
-  <div class="group">
+  <div class="group rec">
     <span class="gl">Record</span>
-    <span class="step"><i>1</i>Fill the form</span>
+    <span class="step"><i>1</i>Fill form</span>
     <span class="step"><i>2</i><select id="gen" title="Profile to save into"></select><select id="pg" title="Which page of the profile these rules belong to"></select></span>
-    <span class="step"><i>3</i><button id="genBtn" class="btn accent">Generate Autofill Rules</button></span>
-    <button id="pickBtn" class="btn" title="Pick the button (e.g. Search) that is clicked after this page is filled">Set click-after</button>
+    <span class="step"><i>3</i><button id="genBtn" class="btn accent" title="Save the fields you changed as rules in the chosen profile and page">Generate Rules</button></span>
+    <button id="pickBtn" class="btn" title="Pick the button (e.g. Search) that is clicked after this page is filled">Click-after</button>
   </div>
   <button id="details" class="btn link" title="Open the details page: all profiles, pages and rules">☰ Details</button>
   <span id="msg"></span>
-  <button id="close" title="Close toolbar">×</button>
+  <button id="fold" class="ib" title="Hide the record tools">⌃</button>
+  <button id="close" class="ib" title="Close toolbar">×</button>
 </div>
+<div id="ask" hidden><div class="card">
+  <h3 id="askTitle"></h3>
+  <div id="askFields"></div>
+  <div class="row"><button id="askOk" class="btn accent">Run</button><button id="askCancel" class="btn">Cancel</button></div>
+</div></div>
 <div id="toast" hidden></div>`;
     document.documentElement.appendChild(host);
 
     const $ = (id) => root.getElementById(id);
     $('close').onclick = () => setBar(false);
+    $('fold').onclick = () => setMini(!$('bar').classList.contains('min'), true);
     $('run').onclick = () => execSelected();
     $('runPage').onclick = runThisPage;
     $('details').onclick = () => chrome.runtime.sendMessage({ type: 'openDetails', profileId: $('gen').value || $('exec').value || '' });
@@ -340,6 +369,39 @@
     $('genBtn').onclick = generate;
     chrome.storage.onChanged.addListener((c) => { if (c.ruleProfiles || c.activeProfile) renderSelects(); });
     if (window.ResizeObserver) new ResizeObserver(() => { if (barOpen) layoutPage(); }).observe($('bar'));
+  }
+
+  // dialog for {{ask}} variables: resolves { key: value } or null when cancelled
+  function askVars(items, title) {
+    ensureUI();
+    return new Promise((resolve) => {
+      $('askTitle').textContent = `Run “${title}” - enter values`;
+      const box = $('askFields'); box.innerHTML = '';
+      const inputs = items.map((it, i) => {
+        const lab = document.createElement('label'); lab.textContent = it.label;
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = it.def || '';
+        lab.appendChild(inp); box.appendChild(lab);
+        return [it.key, inp];
+      });
+      const done = (ok) => {
+        $('ask').hidden = true;
+        $('askOk').onclick = $('askCancel').onclick = null;
+        resolve(ok ? Object.fromEntries(inputs.map(([k, inp]) => [k, inp.value])) : null);
+      };
+      $('askOk').onclick = () => done(true);
+      $('askCancel').onclick = () => done(false);
+      $('ask').onkeydown = (e) => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); };
+      $('ask').hidden = false;
+      if (inputs[0]) inputs[0][1].focus();
+    });
+  }
+
+  // compact mode: hide the Record tools and keep just the Active/Run controls
+  function setMini(mini, persist) {
+    $('bar').classList.toggle('min', mini);
+    $('fold').textContent = mini ? '⌄' : '⌃';
+    $('fold').title = mini ? 'Show the record tools' : 'Hide the record tools';
+    if (persist) chrome.storage.local.set({ toolbarMini: mini });
   }
 
   // remember the profile picked last (shared with the popup)
@@ -392,13 +454,13 @@
 
   const $ = (id) => root.getElementById(id);
 
-  function say(msg, ok) { if (!root) return; const m = $('msg'); m.textContent = msg; m.className = ok ? 'ok' : ''; }
+  function say(msg, ok) { if (!root) return; const m = $('msg'); m.textContent = msg; m.title = msg; m.className = ok ? 'ok' : ''; }
   let toastTimer;
-  function toast(msg, sticky) {
+  function toast(msg, sticky, long) {
     ensureUI();
     const t = $('toast'); t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer);
-    if (!sticky) toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+    if (!sticky) toastTimer = setTimeout(() => { t.hidden = true; }, long ? 15000 : 5000);
   }
 
   function updateStatus() {
@@ -421,9 +483,9 @@
       });
       return h + (extra || '');
     };
-    $('exec').innerHTML = mk('— none —');
+    $('exec').innerHTML = mk('- none -');
     $('exec').value = active;                              // the Active select always shows the active profile
-    $('gen').innerHTML = mk('— select —', '<option value="__new__">+ New profile…</option>');
+    $('gen').innerHTML = mk('- select -', '<option value="__new__">+ New profile…</option>');
     const remembered = profiles.find(p => p.id === st.selectedProfile);
     const fallback = (profiles.find(p => p.id === active) || remembered || profiles.find(p => pageFor(p)) || {}).id;
     if (profiles.some(p => p.id === keepGen)) $('gen').value = keepGen;
@@ -476,7 +538,7 @@
     say(`Opening page ${idx + 1}…`, true);
     const res = await chrome.runtime.sendMessage({ type: 'switchPage', profileId: p.id, index: idx }).catch(() => null);
     if (!res || res.error) {
-      say(res && res.error === 'cannot-open' ? "Can't open a wildcard page — go to it yourself." : 'Could not switch page.');
+      say(res && res.error === 'cannot-open' ? "Can't open a wildcard page - go to it yourself." : 'Could not switch page.');
       setPg(prevPg);
     }
   }
@@ -587,7 +649,7 @@
     const res = await runProfile({ rules: page.rules }, (m) => toast(m, true));
     toast(res.failed.length
       ? `Filled ${res.ok}/${res.total}. Not found: ${res.failed.join(', ')}`
-      : `Done — filled ${res.ok} field${res.ok === 1 ? '' : 's'}.`);
+      : `Done - filled ${res.ok} field${res.ok === 1 ? '' : 's'}.`);
     return res;
   }
 
@@ -597,6 +659,7 @@
     $('bar').hidden = !open;
     if (open) {
       pushPageDown();
+      setMini(!!(await chrome.storage.local.get('toolbarMini')).toolbarMini, false);
       snapshot(); changed.clear();
       await renderSelects();
       updateStatus();
@@ -613,7 +676,7 @@
   chrome.runtime.onMessage.addListener((msg, _s, send) => {
     (async () => {
       if (msg.type === 'toggleBar') { setBar(!barOpen); send({ open: barOpen }); }
-      else if (msg.type === 'getKey') send({ key: fullKey(), path: pageKey() });
+      else if (msg.type === 'getKey') send({ key: fullKey(), path: pageKey(), version: chrome.runtime.getManifest().version });
       else if (msg.type === 'clickAfter') {
         const el = await waitFor(() => { const e = findAfter(msg.after); return e && !e.disabled ? e : null; }, 6000);
         send({ clicked: !!el });
@@ -626,7 +689,7 @@
         const p = (await getProfiles()).find(x => x.id === msg.profileId);
         if (msg.pageIndex == null) {
           setPg('auto');
-          say(`${p ? p.name : 'Profile'} selected — fill the form, then press Generate Autofill Rules.`, true);
+          say(`${p ? p.name : 'Profile'} selected - fill the form, then press Generate Rules.`, true);
         } else {
           setPg(String(msg.pageIndex));
           const pg = p && p.pages[msg.pageIndex];
@@ -634,7 +697,11 @@
         }
         send({ ok: true });
       }
-      else if (msg.type === 'toast') { toast(msg.text); send({ ok: true }); }
+      else if (msg.type === 'askVars') {
+        const values = await askVars(msg.items, msg.title);
+        send(values ? { values } : { cancelled: true });
+      }
+      else if (msg.type === 'toast') { toast(msg.text, false, msg.long); send({ ok: true }); }
       else if (msg.type === 'runPageRules') {
         toast(`${msg.label} · filling…`, true);
         const res = await runProfile({ rules: msg.rules }, (m) => toast(`${msg.label} · ${m}`, true));
@@ -653,6 +720,9 @@
     const gate = await chrome.runtime.sendMessage({ type: 'canAutoRun' }).catch(() => null);
     if (gate && gate.ok === false) return;    // a multi-page run is already driving this tab
     await sleep(AUTORUN_DELAY_MS);
-    for (const p of list) await execute(p);
+    for (const p of list) {
+      const idx = p.pages.findIndex(pageMatches);
+      chrome.runtime.sendMessage({ type: 'runChain', profileId: p.id, only: idx, auto: true });   // background fills variables, runs this page only
+    }
   })();
 })();

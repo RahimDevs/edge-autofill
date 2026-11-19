@@ -2,19 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Quick AutoFill</title>
+  <title>Quick AutoFill - Details</title>
   <link rel="stylesheet" href="details.css">
 </head>
 <body>
   <header class="topbar">
-    <h1><span class="logo">⚡</span> Quick AutoFill <small>Details</small></h1>
+    <h1><span class="logo">⚡</span> Quick AutoFill <small>Details</small> <small id="ver"></small></h1>
     <div class="topactions">
+      <button id="helpBtn">? Help</button>
+      <span class="sep"></span>
       <button id="exportBtn">Export all</button>
       <button id="importBtn">Import</button>
       <input type="file" id="importFile" accept="application/json" hidden>
     </div>
   </header>
-  <div id="status"></div>
+  <div id="status" role="status"></div>
 
   <main class="layout">
     <aside class="side">
@@ -28,6 +30,35 @@
     </aside>
     <section class="detail" id="detail"></section>
   </main>
+
+  <!-- asks for values when a profile runs ({{ask:…}} or a key that is not defined) -->
+  <dialog id="askDlg">
+    <form method="dialog">
+      <h3 id="askTitle"></h3>
+      <div id="askFields"></div>
+      <div class="dfoot"><button id="askCancel" type="button">Cancel</button><button id="askOk" class="primary" value="ok">Run</button></div>
+    </form>
+  </dialog>
+
+  <!-- duplicate profile: name and variables are separate sections -->
+  <dialog id="dupDlg" class="wide">
+    <form method="dialog">
+      <h3>Duplicate profile</h3>
+      <p class="sub" id="dupSub"></p>
+      <section class="dsec">
+        <h4>Profile name</h4>
+        <input id="dupName" type="text" placeholder="Name of the copy">
+      </section>
+      <section class="dsec">
+        <h4>Variables</h4>
+        <p class="hint">Change the values for the copy. Rules keep using the same keys, so nothing else needs editing.</p>
+        <div id="dupVars"></div>
+      </section>
+      <div class="dfoot"><button id="dupCancel" type="button">Cancel</button><button id="dupOk" class="primary" value="ok">Create copy</button></div>
+    </form>
+  </dialog>
+
+  <script src="vars.js"></script>
   <script src="details.js"></script>
 </body>
 </html>
